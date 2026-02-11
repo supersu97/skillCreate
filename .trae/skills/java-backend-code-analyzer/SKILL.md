@@ -3,6 +3,100 @@ name: "java-backend-code-analyzer"
 description: "让开发者使用AI分析和理解Java后台代码，包括Spring框架、MyBatis、接口详细分析。当需要理解Java后台代码逻辑、分析接口流程、查找bug、优化性能或进行代码修改时调用。"
 ---
 
+# 执行指令（CRITICAL - 必须遵循）
+
+当用户调用此技能时，你必须按照以下步骤执行：
+
+## 步骤1：理解用户需求
+- 识别用户要分析的目标（类名、方法名、文件路径等）
+- 确定用户是否指定了输出模式（交互式、预设模式、自定义）
+
+## 步骤2：执行代码分析
+- 使用 Glob 工具查找目标文件
+- 使用 Read 工具读取相关代码
+- 使用 Grep 工具查找依赖和引用
+- 在内部完成完整的代码分析（不要立即输出）
+
+## 步骤3：确定输出方式
+
+### 情况A：用户明确指定了输出模式
+如果用户在请求中包含以下关键词，直接按指定方式输出：
+- "完成分析后提供交互式选择" → 执行交互式选择流程
+- "使用【基础模式】" → 输出基础模式内容
+- "使用【数据库模式】" → 输出数据库模式内容
+- "使用【安全模式】" → 输出安全模式内容
+- "使用【性能模式】" → 输出性能模式内容
+- "只需要输出【xxx】" → 输出指定的内容
+
+### 情况B：用户未指定输出模式（默认情况）
+**必须使用交互式选择**，执行以下流程：
+
+1. **简要总结分析结果**（2-3句话）
+   ```
+   已完成对 [目标] 的分析。该方法主要功能是 [简述]，发现 [X] 个潜在问题。
+   ```
+
+2. **使用 AskUserQuestion 工具提供选择菜单**
+   ```javascript
+   {
+     "questions": [{
+       "question": "请选择要查看的分析内容（可多选）：",
+       "header": "分析内容",
+       "multiSelect": true,
+       "options": [
+         {
+           "label": "方法基本信息",
+           "description": "方法签名、参数、返回值、注解等基本信息"
+         },
+         {
+           "label": "输入输出参数",
+           "description": "详细的参数说明、数据结构、验证规则"
+         },
+         {
+           "label": "业务逻辑流程",
+           "description": "完整的业务处理流程和调用链路"
+         },
+         {
+           "label": "接口调用详情",
+           "description": "外部接口调用详情、请求响应结构"
+         },
+         {
+           "label": "数据库操作",
+           "description": "SQL语句、表结构、性能分析"
+         },
+         {
+           "label": "潜在问题分析",
+           "description": "代码问题、安全隐患、性能瓶颈"
+         },
+         {
+           "label": "优化建议",
+           "description": "具体的改进方案和最佳实践"
+         },
+         {
+           "label": "查看完整报告",
+           "description": "输出所有分析内容"
+         }
+       ]
+     }]
+   }
+   ```
+
+3. **根据用户选择输出相应内容**
+   - 如果选择"查看完整报告"，输出所有内容
+   - 如果选择特定项目，只输出选中的部分
+   - 使用清晰的标题和格式组织内容
+
+## 步骤4：后续交互
+分析完成后，询问用户：
+```
+是否需要：
+1. 查看其他部分的详细信息
+2. 针对某个问题提供修改建议
+3. 分析相关的其他方法或类
+```
+
+---
+
 # Java后台代码AI分析工具
 
 *本技能专为Claude Code设计，提供强大的交互式Java代码分析体验，特别针对Spring框架和MyBatis项目。*
@@ -222,7 +316,7 @@ src/main/resources/mapper/OrderMapper.xml
 
 ## 输出格式
 
-你可以选择性地指定需要哪些分析内容。如果未指定，默认返回所有分析内容。
+你可以选择性地指定需要哪些分析内容。如果未指定，默认使用交互式选择。
 
 ### 可选择的输出项目
 1. **Java代码分析报告**：详细的Java代码结构和逻辑分析
@@ -235,7 +329,7 @@ src/main/resources/mapper/OrderMapper.xml
 
 ### 输出内容选择方式
 
-#### 方式一：交互式选择（最推荐）
+#### 方式一：交互式选择（最推荐，默认方式）
 分析完成后，在命令行中提供交互式选项，让你选择要查看的内容：
 
 **交互式选择流程：**
@@ -255,19 +349,22 @@ src/main/resources/mapper/OrderMapper.xml
 
 ```
 分析完成！请选择要查看的内容：
-1. Spring接口基本信息
-2. 输入输出参数分析
-3. Java代码调用顺序
-4. 业务逻辑流程
-5. MyBatis数据库操作详情
-6. Spring事务管理分析
-7. 性能考虑
-8. 安全考虑
-9. 查看完整报告
-10. 导出报告到文件
+1. 方法基本信息
+2. 输入输出参数
+3. 业务逻辑流程
+4. 接口调用详情
+5. 数据库操作
+6. 潜在问题分析
+7. 优化建议
+8. 查看完整报告
 ```
 
 **触发交互式选择：**
+```
+请分析以下Spring Controller方法：
+UserController.getUserById
+```
+或
 ```
 请分析以下Spring Controller方法，完成分析后提供交互式选择：
 UserController.getUserById
@@ -280,7 +377,7 @@ UserController.getUserById
    - 包含：Spring接口基本信息、输入输出参数
    - 适合：快速了解接口基本功能
 
-2. **详细模式**：输出完整分析内容（默认）
+2. **详细模式**：输出完整分析内容
    - 包含：所有分析内容
    - 适合：全面深入的Java代码分析
 
@@ -359,273 +456,6 @@ src/main/java/com/example/service/impl/UserServiceImpl.java
 - **SQL语句分析**：SELECT/INSERT/UPDATE/DELETE语句、参数映射、结果映射
 - **性能优化**：SQL执行计划、索引使用、查询优化建议
 - **安全性检查**：SQL注入风险、参数绑定检查
-
-## 示例输出
-
-### Java代码分析示例
-
-*以下是完整的Java代码分析报告（默认输出所有内容，用户可选择只输出部分内容）：*
-
-```
-# Java代码分析报告：src/main/java/com/example/service/impl/UserServiceImpl.java
-
-## 功能概述
-- 提供用户管理相关的业务逻辑实现
-- 包含用户CRUD操作、身份验证、权限管理等功能
-- 使用Spring框架进行依赖注入和事务管理
-
-## 代码结构
-- `UserServiceImpl`类：实现UserService接口
-- `@Service`注解：Spring服务层组件
-- `@Autowired`依赖：注入UserMapper、RoleService等
-- `@Transactional`方法：需要事务管理的方法
-
-## 主要方法
-- `getUserById(Long id)`: 根据ID获取用户信息
-- `createUser(UserDTO userDTO)`: 创建新用户
-- `updateUser(Long id, UserDTO userDTO)`: 更新用户信息
-- `deleteUser(Long id)`: 删除用户（逻辑删除）
-- `authenticate(String username, String password)`: 用户认证
-
-## 潜在问题
-1. 密码存储使用了MD5哈希，存在安全隐患，建议使用BCrypt
-2. 删除操作为逻辑删除，但相关关联数据未处理
-3. 缺少输入验证，可能导致业务逻辑错误
-4. 事务边界设置不够精确，可能影响性能
-
-## 优化建议
-1. 使用BCryptPasswordEncoder对密码进行安全哈希处理
-2. 完善删除操作的级联处理
-3. 添加参数验证注解（如@Valid）
-4. 优化事务管理，为只读操作添加readOnly=true
-```
-
-### Spring接口分析示例
-
-*支持多种输入格式：类名+方法名、文件路径、接口路径。以下是以类名+方法名格式为例的完整分析报告（默认输出所有内容，用户可选择只输出部分内容）：*
-
-```
-# Spring接口分析报告：UserController.getUserById
-
-## Spring接口基本信息
-- **Controller类**：UserController
-- **方法名**：getUserById
-- **HTTP方法**：GET
-- **路径**：/api/users/{id}
-- **描述**：根据用户ID获取用户详细信息
-- **注解**：@GetMapping("/{id}")、@ResponseBody
-
-## 输入参数
-### 路径参数
-- `id` (Long): 用户ID，必填，通过@PathVariable绑定
-
-### 查询参数
-- `includeProfile` (Boolean, 可选): 是否包含用户资料信息，默认false
-- `fields` (String, 可选): 需要返回的字段，逗号分隔
-
-### 请求头
-- `Authorization` (String): Bearer token，用于身份验证
-- `Content-Type`: application/json
-
-## 输出参数
-### 成功响应 (200 OK)
-```java
-// 返回类型：ResponseEntity<UserResponseDTO>
-{
-  "success": true,
-  "code": 200,
-  "message": "success",
-  "data": {
-    "id": 12345,
-    "username": "john_doe",
-    "email": "john@example.com",
-    "name": "John Doe",
-    "createdAt": "2021-06-25T12:34:56.789Z",
-    "profile": {
-      "avatar": "https://example.com/avatar.jpg",
-      "bio": "Software developer"
-    }
-  }
-}
-```
-
-### 错误响应
-- `401 Unauthorized`: Token无效或过期
-- `404 Not Found`: 用户不存在
-- `500 Internal Server Error`: 服务器内部错误
-
-## Java代码调用顺序
-1. **Controller层**：UserController.getUserById()接收请求
-2. **参数验证**：Spring Validation验证@PathVariable参数
-3. **Service层**：调用UserService.getUserById(id, includeProfile)
-4. **业务逻辑**：UserServiceImpl处理业务规则和权限检查
-5. **DAO层**：调用UserMapper.selectUserById(id)
-6. **MyBatis映射层**：执行SQL查询，映射结果到User实体
-7. **DTO转换**：将User实体转换为UserResponseDTO
-8. **响应构建**：构建ResponseEntity返回给客户端
-
-## 业务逻辑流程
-1. 从路径参数中提取用户ID
-2. 验证当前用户是否有权限访问该用户信息（权限检查）
-3. 调用UserService.getUserById获取用户数据
-4. 如果查询结果为空，抛出UserNotFoundException
-5. 根据includeProfile参数决定是否加载用户资料
-6. 转换实体为DTO，隐藏敏感字段（如密码）
-7. 构建统一的响应格式返回
-
-## 第三方接口调用
-### 内部服务调用
-- **用户服务**：调用UserService.getUserById(id, includeProfile)
-- **权限服务**：调用PermissionService.checkUserAccess(userId, currentUserId)
-- **缓存服务**：调用CacheService.getUserCache(id)
-
-### 外部API调用
-- **无**：此接口不依赖外部第三方API
-
-## MyBatis数据库操作
-### Mapper接口
-- **接口**：UserMapper
-- **方法**：selectUserById(@Param("id") Long id)
-
-### SQL语句
-```xml
-<!-- src/main/resources/mapper/UserMapper.xml -->
-<select id="selectUserById" resultMap="UserResultMap">
-    SELECT 
-        u.id, u.username, u.email, u.name, u.created_at,
-        p.avatar, p.bio
-    FROM users u
-    LEFT JOIN user_profiles p ON u.id = p.user_id
-    WHERE u.id = #{id} AND u.deleted = 0
-</select>
-```
-
-### 查询表
-- **主表**：users
-- **关联表**：user_profiles (通过user_id关联)
-
-### 返回字段
-- **用户表字段**：id, username, email, name, created_at
-- **资料表字段**：avatar, bio
-- **排除字段**：password, deleted等敏感字段
-
-## 性能考虑
-1. **数据库索引**：users.id有主键索引，user_profiles.user_id有外键索引
-2. **查询优化**：使用LEFT JOIN避免N+1查询问题
-3. **缓存策略**：用户数据可缓存，减少数据库查询
-4. **连接池配置**：使用DBCP2连接池管理数据库连接
-
-## 安全考虑
-1. **身份验证**：必须提供有效的Token
-2. **权限验证**：只能访问自己的用户信息或具有相应权限
-3. **数据过滤**：排除敏感字段，如密码、删除标记等
-4. **SQL注入防护**：使用#{}参数绑定防止SQL注入
-
-## Spring事务管理
-- **事务注解**：在Service层使用@Transactional
-- **传播机制**：PROPAGATION_REQUIRED（默认）
-- **隔离级别**：READ_COMMITTED（默认）
-- **只读事务**：查询操作为只读事务
-
-### MyBatis映射文件分析示例
-
-```
-# MyBatis映射文件分析报告：src/main/resources/mapper/OrderMapper.xml
-
-## 文件概述
-- **namespace**：com.example.mapper.OrderMapper
-- **包含语句**：8个SQL语句（4个SELECT，2个INSERT，2个UPDATE）
-- **结果映射**：3个resultMap定义
-
-## SQL语句分析
-### selectOrderById
-```xml
-<select id="selectOrderById" parameterType="Long" resultMap="OrderResultMap">
-    SELECT * FROM orders WHERE id = #{id}
-</select>
-```
-**分析**：
-- 使用#{}参数绑定，防止SQL注入
-- 查询所有字段（SELECT *），建议指定具体字段
-- 缺少deleted字段过滤逻辑删除的记录
-
-### selectOrdersByUserId
-```xml
-<select id="selectOrdersByUserId" parameterType="Long" resultMap="OrderResultMap">
-    SELECT o.*, u.name as user_name 
-    FROM orders o 
-    JOIN users u ON o.user_id = u.id 
-    WHERE o.user_id = #{userId} AND o.status != 'DELETED'
-    ORDER BY o.created_at DESC
-</select>
-```
-**分析**：
-- 使用JOIN关联查询，性能较好
-- 添加了状态过滤，避免查询已删除订单
-- 按创建时间倒序排序，符合业务需求
-- 建议添加分页支持
-
-## 性能优化建议
-1. **索引建议**：为orders.user_id、orders.created_at添加复合索引
-2. **分页支持**：添加LIMIT子句支持分页查询
-3. **字段优化**：避免使用SELECT *，指定具体字段
-4. **缓存考虑**：可考虑添加二级缓存配置
-
-## 安全性检查
-1. **SQL注入防护**：所有语句都使用#{}参数绑定，安全
-2. **权限控制**：需要在业务层进行权限验证
-3. **数据过滤**：逻辑删除的记录已过滤，良好
-```
-
-### 代码修改示例
-
-```
-# Java代码修改建议：src/main/java/com/example/controller/UserController.java
-
-## 原代码
-```java
-@RestController
-@RequestMapping("/api/users")
-public class UserController {
-    
-    @Autowired
-    private UserService userService;
-    
-    @GetMapping("/{id}")
-    public User getUserById(@PathVariable Long id) {
-        return userService.getUserById(id);
-    }
-}
-```
-
-## 修改后代码
-```java
-@RestController
-@RequestMapping("/api/users")
-@Validated
-public class UserController {
-    
-    @Autowired
-    private UserService userService;
-    
-    @GetMapping("/{id}")
-    public ResponseEntity<BaseResponse<UserResponseDTO>> getUserById(
-            @PathVariable @Min(1) Long id,
-            @RequestParam(required = false) Boolean includeProfile) {
-        
-        UserResponseDTO user = userService.getUserById(id, includeProfile != null ? includeProfile : false);
-        return ResponseEntity.ok(BaseResponse.success(user));
-    }
-}
-```
-
-## 修改说明
-1. 添加@Validated注解支持参数验证
-2. 为id参数添加@Min(1)验证，确保ID大于0
-3. 添加includeProfile查询参数，支持可选包含用户资料
-4. 统一响应格式为BaseResponse，包含success、code、message、data字段
-5. 使用ResponseEntity包装响应，支持HTTP状态码
-```
 
 ---
 
